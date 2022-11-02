@@ -1,2 +1,1 @@
-# Actor System
 # ActorSystem
