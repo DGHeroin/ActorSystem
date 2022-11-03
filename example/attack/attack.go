@@ -11,14 +11,13 @@ func init() {
     log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 func main() {
-    attackSys := ActorSystem.NewActorSystem("attack_system", &ActorSystem.Config{
+    attackSys := ActorSystem.NewSystem("attack_system", &ActorSystem.Config{
         MinActor:          3,
         MaxActor:          30,
         DispatchQueueSize: 30,
-        TaskQueueSize:     10,
+        ActorQueueSize:    10,
     })
     attackSys.Run()
-
     id := 0
     runCount := 0
     failCount := 0
@@ -28,10 +27,10 @@ func main() {
     for {
         id++
         runCount++
-        err := attackSys.SubmitTask(&AttackTask{id: id})
+        err := attackSys.Dispatch(&AttackMessage{id: id})
         if err != nil {
             failCount++
-            log.Println("dispatch task failed:", err, id, failCount)
+            log.Println("dispatch message failed:", err, id, failCount)
             time.Sleep(time.Second)
         } else {
             okCount++
@@ -54,20 +53,20 @@ func main() {
         }
     }
 
-    log.Println("start shutdown", execCount, id, failCount, attackSys.Stat())
+    log.Println("start shutdown", execCount, id, failCount, attackSys)
     attackSys.Shutdown()
-    log.Println("finished shutdown", execCount, id, failCount, attackSys.Stat())
+    log.Println("finished shutdown", execCount, id, failCount, attackSys)
 }
 
 type (
-    AttackTask struct {
+    AttackMessage struct {
         id int
     }
 )
 
 var execCount int32
 
-func (a *AttackTask) Execute() {
+func (a *AttackMessage) Execute() {
     // log.Println("do attack:", a.id)
     atomic.AddInt32(&execCount, 1)
     time.Sleep(time.Second)

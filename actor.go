@@ -1,19 +1,17 @@
 package ActorSystem
 
-import "sync"
-
 type (
+    System interface {
+        Run()
+        Dispatch(message Message) error
+        Shutdown()
+    }
     Actor interface {
-        AddTask(task Task) error
+        Receive(Message) error
         Start()
         Stop()
     }
-    System interface {
-        Run()
-        SubmitTas(task Task)
-        Shutdown(shutdownWG *sync.WaitGroup)
-    }
-    Task interface {
+    Message interface {
         Execute()
     }
 )

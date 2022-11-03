@@ -6,9 +6,9 @@ import (
     "time"
 )
 
-type TaskDispatcher struct {
+type Dispatcher struct {
     pool     []Actor
-    tasks    chan Task
+    messages chan Message
     index    int
     mu       sync.Mutex
     config   *Config
@@ -17,35 +17,33 @@ type TaskDispatcher struct {
     stat     *SystemStat
 }
 
-func (a *TaskDispatcher) AddTask(task Task) error {
-    sz := len(a.tasks)
+func (a *Dispatcher) Receive(message Message) error {
+    sz := len(a.messages)
     if sz >= a.config.DispatchQueueSize {
-        // 检查还有没有额度创建新 task actor
-        if !a.growTaskActor() {
+        // 检查还有没有额度创建新 message actor
+        if !a.growActor() {
             if !a.config.DispatchBlocking {
-                return errors.New("task dispatcher queue is full")
+                return errors.New("message dispatcher queue is full")
             }
         }
     }
-
-    a.tasks <- task
+    a.messages <- message
     return nil
 }
-func (a *TaskDispatcher) Start() {
-    for task := range a.tasks {
+func (a *Dispatcher) Start() {
+    for message := range a.messages {
         for {
             var actor = a.Pick() // pick actor form actors pool
             if actor != nil {
-                err := actor.AddTask(task)
-                if err == nil {
+                if err := actor.Receive(message); err == nil {
                     break
                 }
             }
         }
     }
 }
-func (a *TaskDispatcher) Stop() {
-    close(a.tasks)
+func (a *Dispatcher) Stop() {
+    close(a.messages)
     a.mu.Lock()
     defer a.mu.Unlock()
     for _, actor := range a.pool {
@@ -53,7 +51,7 @@ func (a *TaskDispatcher) Stop() {
     }
     a.stopChan <- true
 }
-func (a *TaskDispatcher) Pick() Actor {
+func (a *Dispatcher) Pick() Actor {
     a.mu.Lock()
     defer a.mu.Unlock()
     if len(a.pool) == 0 {
@@ -64,15 +62,14 @@ func (a *TaskDispatcher) Pick() Actor {
     a.index += 1
     return actor
 }
-
-func (a *TaskDispatcher) autoScale() {
+func (a *Dispatcher) autoScale() {
     for {
         select {
         case <-a.stopChan:
             return
         case <-time.After(100 * time.Millisecond):
             if a.actorsSize() < a.config.MinActor {
-                a.growTaskActor()
+                a.growActor()
             }
             if a.queueSize() == 0 {
                 if a.RemoveActor(1) {
@@ -81,15 +78,15 @@ func (a *TaskDispatcher) autoScale() {
         }
     }
 }
-func (a *TaskDispatcher) AddActor(dt int) {
+func (a *Dispatcher) AddActor(dt int) {
     a.mu.Lock()
     defer a.mu.Unlock()
     for i := 0; i < dt; i++ {
-        a.pool = append(a.pool, NewTaskActor(a.stat, a.wg, a.config))
+        a.pool = append(a.pool, NewActor(a.stat, a.wg, a.config))
     }
     a.stat.Actors = len(a.pool)
 }
-func (a *TaskDispatcher) RemoveActor(dt int) bool {
+func (a *Dispatcher) RemoveActor(dt int) bool {
     if a.actorsSize() <= a.config.MinActor {
         return false
     }
@@ -105,17 +102,17 @@ func (a *TaskDispatcher) RemoveActor(dt int) bool {
     a.stat.Actors = len(a.pool)
     return true
 }
-func (a *TaskDispatcher) actorsSize() int {
+func (a *Dispatcher) actorsSize() int {
     a.mu.Lock()
     defer a.mu.Unlock()
     return len(a.pool)
 }
-func (a *TaskDispatcher) queueSize() int {
+func (a *Dispatcher) queueSize() int {
     a.mu.Lock()
     defer a.mu.Unlock()
-    return len(a.tasks)
+    return len(a.messages)
 }
-func (a *TaskDispatcher) growTaskActor() bool {
+func (a *Dispatcher) growActor() bool {
     if a.actorsSize() >= a.config.MaxActor {
         return false
     }
@@ -123,8 +120,8 @@ func (a *TaskDispatcher) growTaskActor() bool {
     return true
 }
 func NewDispatcherActor(stat *SystemStat, wg *sync.WaitGroup, config *Config) Actor {
-    actor := &TaskDispatcher{
-        tasks:    make(chan Task, config.DispatchQueueSize),
+    actor := &Dispatcher{
+        messages: make(chan Message, config.DispatchQueueSize),
         pool:     make([]Actor, config.MinActor),
         config:   config,
         wg:       wg,
@@ -132,7 +129,7 @@ func NewDispatcherActor(stat *SystemStat, wg *sync.WaitGroup, config *Config) Ac
         stat:     stat,
     }
     for i := 0; i < config.MinActor; i++ {
-        actor.pool[i] = NewTaskActor(stat, wg, config)
+        actor.pool[i] = NewActor(stat, wg, config)
     }
     stat.Actors = len(actor.pool)
     go actor.autoScale()

@@ -7,7 +7,7 @@ import (
 )
 
 type (
-    ActorSystem struct {
+    MessageSystem struct {
         name       string
         dispatcher Actor
         config     *Config
@@ -15,11 +15,11 @@ type (
         stat       *SystemStat
     }
     Config struct {
-        MinActor          int  `env:"min_actor" default:"10"`
-        MaxActor          int  `env:"max_actor" default:"100"`
-        TaskQueueSize     int  `env:"task_queue_size" default:"10"`
-        DispatchQueueSize int  `env:"dispatch_queue_size" default:"100"`
-        DispatchBlocking  bool `env:"dispatch_blocking" default:"false"`
+        MinActor          int
+        MaxActor          int
+        ActorQueueSize    int
+        DispatchQueueSize int
+        DispatchBlocking  bool
     }
     SystemStat struct {
         Running  int64
@@ -29,35 +29,38 @@ type (
     }
 )
 
-func (s *ActorSystem) Run() {
+func (s *MessageSystem) Run() {
     go s.dispatcher.Start()
 }
 
-func (s *ActorSystem) SubmitTask(task Task) error {
-    err := s.dispatcher.AddTask(task)
+func (s *MessageSystem) Dispatch(message Message) error {
+    err := s.dispatcher.Receive(message)
     if err != nil {
         atomic.AddUint64(&s.stat.Failed, 1)
     }
     return err
 }
 
-func (s *ActorSystem) Shutdown() {
+func (s *MessageSystem) Shutdown() {
     s.dispatcher.Stop()
     s.wg.Wait()
 }
-func (s *ActorSystem) Stat() SystemStat {
+func (s MessageSystem) String() string {
+    return fmt.Sprintf("[%s] system stat:\n%s", s.name, s.stat.String())
+}
+func (s *MessageSystem) Stat() SystemStat {
     return *s.stat
 }
 func (s SystemStat) String() string {
-    return fmt.Sprintf("system stat:\n=>finished tasks:%d\n=>submit failed:%d\n=>running tasks:%d\n=>actors:%v",
+    return fmt.Sprintf("=>finished messages:%d\n=>submit failed:%d\n=>running messages:%d\n=>actors:%v",
         s.Finished, s.Failed, s.Running, s.Actors)
 }
-func NewActorSystem(name string, config *Config) *ActorSystem {
+func NewSystem(name string, config *Config) System {
     var (
         wg   = &sync.WaitGroup{}
         stat = &SystemStat{}
     )
-    system := &ActorSystem{
+    system := &MessageSystem{
         name:       name,
         config:     config,
         dispatcher: NewDispatcherActor(stat, wg, config),
