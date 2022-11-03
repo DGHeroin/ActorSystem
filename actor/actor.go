@@ -1,4 +1,4 @@
-package ActorSystem
+package actor
 
 type (
     Actor interface {

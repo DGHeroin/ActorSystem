@@ -1,4 +1,4 @@
-package ActorSystem
+package actor
 
 import (
     "errors"
@@ -67,7 +67,6 @@ func (a SystemStat) String() string {
         a.Finished+a.Failed,
         a.Finished, a.Failed, a.Running, a.Actors)
 }
-
 func (sys *System) Dispatch(message Message) error {
     sz := len(sys.messages)
     if sys.config.DispatchQueueSize != 0 && sz >= sys.config.DispatchQueueSize {

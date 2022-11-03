@@ -2,26 +2,26 @@ package main
 
 import (
     "fmt"
-    "github.com/DGHeroin/ActorSystem"
+    "github.com/DGHeroin/ActorSystem/actor"
     "log"
 )
 
 func main() {
-    sys := ActorSystem.NewSystem("players_system", &ActorSystem.Config{})
+    sys := actor.NewSystem("players_system", &actor.Config{})
     sys.Start()
 
-    A, _ := sys.NewActor()
-    B, _ := sys.NewActor()
+    aidA, _ := sys.NewActor()
+    aidB, _ := sys.NewActor()
 
     err := sys.Dispatch(&Message{"random hello"})
     if err != nil {
         fmt.Println(err)
     }
-    err = sys.DispatchTo(A, &Message{text: "hello A"})
+    err = sys.DispatchTo(aidA, &Message{text: "hello A"})
     if err != nil {
         fmt.Println(err)
     }
-    err = sys.DispatchTo(B, &Message{text: "hello B"})
+    err = sys.DispatchTo(aidB, &Message{text: "hello B"})
     if err != nil {
         fmt.Println(err)
     }
@@ -35,6 +35,6 @@ type (
     }
 )
 
-func (m *Message) Execute(ctx ActorSystem.Context) {
+func (m *Message) Execute(ctx actor.Context) {
     log.Println("say:", m.text, ctx.Actor())
 }

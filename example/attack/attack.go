@@ -1,7 +1,7 @@
 package main
 
 import (
-    "github.com/DGHeroin/ActorSystem"
+    "github.com/DGHeroin/ActorSystem/actor"
     "log"
     "math/rand"
     "sync/atomic"
@@ -12,14 +12,13 @@ func init() {
     log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 func main() {
-    attackSys := ActorSystem.NewSystem("attack_system", &ActorSystem.Config{
+    attackSys := actor.NewSystem("attack_system", &actor.Config{
         MinActor:          3,
         MaxActor:          10,
         DispatchQueueSize: 100,
         ActorQueueSize:    20,
-        SpawnActor: func() ActorSystem.Actor {
-            actor := &AttackActor{}
-            return actor
+        SpawnActor: func() actor.Actor {
+            return &AttackActor{}
         },
     })
 
@@ -86,7 +85,7 @@ type (
     }
 )
 
-func (a *AttackActor) Receive(ctx ActorSystem.Context) {
+func (a *AttackActor) Receive(ctx actor.Context) {
     switch msg := ctx.Message().(type) {
     case *AttackMessage:
         msg.HP -= 50 + rand.Intn(5)
@@ -98,11 +97,11 @@ func (a *AttackActor) Receive(ctx ActorSystem.Context) {
     }
 }
 
-func (a *AttackActor) Start(ctx ActorSystem.Context) {
+func (a *AttackActor) Start(ctx actor.Context) {
     log.Println("AttackActor Start:", ctx.Id())
 }
 
-func (a *AttackActor) Stop(ctx ActorSystem.Context) {
+func (a *AttackActor) Stop(ctx actor.Context) {
     log.Println("AttackActor Stop:", ctx.Id())
 }
 

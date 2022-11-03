@@ -1,4 +1,4 @@
-package ActorSystem
+package actor
 
 import (
     "errors"
